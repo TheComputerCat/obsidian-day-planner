@@ -1,3 +1,63 @@
+## 0.24.0
+
+### ✨ New features
+
+- Active task end time is now shown in status bar
+- Notifications now show timestamps
+
+### 🐞 Fixed issues
+
+- Now tasks with no text content are not shown in timeline
+- Fixed deleted recurrences of events in remote calendars showing up
+- Fixed 12 am parsed as noon
+
+## 0.23.0
+
+### ✨ New features
+
+- Now clicking on checkboxes on the timeline completes a task. [obsidian-tasks](https://github.com/obsidian-tasks-group/obsidian-tasks) logic is also respected: recurrent tasks get updated, 'finished' property gets added
+- There is now an option to sort items by time in your planner after an edit (thanks, @Gelio)
+- You can now configure what kind of task to create on edit: bullet (`- task`) or checkbox (`- [ ] task`)
+- Minimal task duration is now configurable. Now tasks won't shrink beyond this point when editing
+- Timestamps get parsed anywhere on the line, not only at the start, e.g.: `- [ ] #task 20:30 - 21:00 Wake up`
+  - Note that if a timestamp is not at the start of the line, it needs to be in a stricter format to avoid confusing the plugin
+    - `20:00` will work
+    - `2000` will not work
+- There is now an option to specify your email in remote calendar config. If you do this, your RSVP status (declined/tentative) will get displayed on remote tasks from this calendar (thanks, @ramandv)
+
+### 🐞 Fixed issues
+
+- Now timeline will stay where you've left it when you reload Obsidian (thanks, @k4a-l)
+
+## 0.22.0
+
+### ✨ New features
+
+- Default task status on creation is now configurable
+
+### 🐞 Fixed issues
+
+- Fixed load failure when unable to read daily notes
+- Fixed console error on plugin load
+- Fixed moving tasks to non-existent daily notes
+- Fixed active day in week not changing on next day
+- No more note switching when navigating between days from timeline view
+
+## 0.21.1
+
+### ✨ New features
+
+- Drag-and-drop edits are now working on mobile: long-press on a task block to see the controls, tap on the control and start dragging to change task time
+- Added floating edit controls on top of task blocks. All the edit modes are now easily available
+- Now you can change task start time
+- There is now a new edit mode: move block and shrink neighboring blocks
+- Now you can manually adjust the height of the unscheduled tasks section through drag-and-drop
+
+### 🐞 Fixed issues
+
+- Fixed empty remote event names breaking the plugin (#430)
+- Fixed advanced editing with Ctrl/Shift not working (#462). To do advanced edits, simply hover over the block, then over the edit controls
+
 ## 0.20.1 - 0.20.4
 
 - 🐞 add toggle to disable release notes (#399)
@@ -16,12 +76,12 @@
 
 - ✨ Color coding: you can define background color for blocks containing certain text in first line
 - ✨ Weekly view now displays unscheduled tasks on top
-- ✨ Advanced drag-and-drop editing does not require modifier keys any more, you pick current edit mode in timeline controls 
+- ✨ Advanced drag-and-drop editing does not require modifier keys any more, you pick current edit mode in timeline controls
 
 ### Fixed issues
 
 - 🐞 Fixed scheduling tasks for other days than today (by @Lunkle)
-- 🐞 Pointer to current time is now more visible 
+- 🐞 Pointer to current time is now more visible
 - 🐞 Task summary in internet calendars is now displayed next to calendar name, to make it visible in short blocks
 
 ## 0.19.1 - 0.19.6
