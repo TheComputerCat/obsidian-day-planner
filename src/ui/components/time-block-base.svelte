@@ -1,44 +1,46 @@
 <script lang="ts">
-  import { getContext, type Snippet } from "svelte";
-  import { fromStore } from "svelte/store";
+  import { type Snippet } from "svelte";
 
-  import { settings } from "../../global-store/settings";
+  import { getObsidianContext } from "../../context/obsidian-context";
   import type { Task } from "../../task-types";
-  import type { ObsidianContext } from "../../types";
-  import { tappable } from "../actions/tappable";
   import type { ActionArray } from "../actions/use-actions";
   import { useActions } from "../actions/use-actions";
-  import { getColorOverride } from "../hooks/get-color-override.svelte";
+  import { getColorOverride } from "../hooks/get-color-override";
+  import { useColor } from "../hooks/use-color.svelte";
 
-  import { obsidianContext } from "./../../constants";
+  interface Props {
+    children: Snippet;
+    task: Task;
+    use?: ActionArray;
+    onpointerup?: (event: PointerEvent) => void;
+  }
+
+  const { onpointerup, children, task, use = [] }: Props = $props();
+
+  const { isDarkMode, settingsSignal } = getObsidianContext();
 
   const {
-    children,
-    task,
-    use = [],
-  }: { children: Snippet; task: Task; use: ActionArray } = $props();
-
-  const { isDarkMode } = getContext<ObsidianContext>(obsidianContext);
-
-  const override = $derived(
-    getColorOverride(
-      task,
-      fromStore(isDarkMode).current,
-      fromStore(settings).current,
-    ),
-  );
+    properContrastColors: { normal, muted, faint },
+    backgroundColor,
+    borderColor,
+  } = $derived(useColor({ task }));
 </script>
 
 <div class="padding">
   <div
-    style:background-color={override}
+    style:--text-faint={faint}
+    style:--text-muted={muted}
+    style:--text-normal={normal}
+    style:--time-block-bg-color={backgroundColor}
+    style:--time-block-border-color="var(--time-block-border-color-override, {borderColor})"
+    style:background-color={getColorOverride(
+      task,
+      isDarkMode.current,
+      settingsSignal.current,
+    )}
     class="content"
-    on:longpress
-    on:pointerenter
-    on:pointerleave
-    on:pointerup
-    on:tap
-    use:tappable
+    class:truncated-bottom={task.truncated === "bottom"}
+    {onpointerup}
     use:useActions={use}
   >
     {@render children()}
@@ -55,16 +57,16 @@
 
     width: var(--time-block-width, 100%);
     height: var(--time-block-height, auto);
-    padding: 0 1px 2px;
+    padding: var(--time-block-padding, 0 1px 2px);
 
     transition: 0.05s linear;
   }
 
   .content {
+    --default-box-shadow: 1px 1px 2px 0 #0000001f;
+
     position: relative;
 
-    overflow: hidden;
-    display: flex;
     flex: 1 0 0;
 
     font-size: var(--font-ui-small);
@@ -74,6 +76,12 @@
 
     border: 1px solid var(--time-block-border-color, var(--color-base-50));
     border-radius: var(--radius-s);
-    box-shadow: 1px 1px 2px 0 #0000001f;
+    box-shadow: var(--time-block-box-shadow, var(--default-box-shadow));
+  }
+
+  .truncated-bottom {
+    border-bottom-style: dashed;
+    border-bottom-right-radius: 0;
+    border-bottom-left-radius: 0;
   }
 </style>

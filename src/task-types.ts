@@ -4,14 +4,11 @@ import type { Pos } from "obsidian";
 
 import type { getHorizontalPlacing } from "./overlap/horizontal-placing";
 import type { IcalConfig } from "./settings";
-import { getDiff } from "./util/tasks-utils";
 
-export interface TaskTypes {
+export interface TaskLocation {
   path: string;
   position: Pos;
 }
-
-export type Diff = ReturnType<typeof getDiff>;
 
 export interface TaskTokens {
   symbol: string;
@@ -29,15 +26,16 @@ export type WithPlacing<T> = T & {
 };
 
 export type BaseTask = {
+  /** Tasks get an ID on parsing. It is unique to a line in a file, not to a
+   *  block, visible in the UI (because blocks might get split at midnight, etc.).
+   */
   id: string;
   startTime: Moment;
+  isAllDayEvent?: boolean;
+  truncated?: Side;
 };
 
 export type WithTime<T> = T & {
-  /**
-   * @deprecated Should be derived from startTime
-   */
-  startMinutes: number;
   durationMinutes: number;
 };
 
@@ -48,37 +46,31 @@ export type RemoteTask = BaseTask & {
   description?: string;
 };
 
+type Side = "top" | "bottom" | "left" | "right";
+
 export interface LocalTask extends TaskTokens, BaseTask {
-  /**
-   * @deprecated
-   */
   text: string;
   lines?: Array<FileLine>;
 
   // todo: move out to InMemoryTask
-  location?: TaskTypes;
+  location?: TaskLocation;
   isGhost?: boolean;
 
   // todo: move to Time
   durationMinutes: number;
 }
 
+export type TaskWithoutComputedDuration = Omit<LocalTask, "durationMinutes"> &
+  Partial<Pick<LocalTask, "durationMinutes">>;
+
 export type Task = LocalTask | RemoteTask;
 
-export interface TasksForDay<T = Task> {
-  withTime: Array<WithTime<T>>;
-  noTime: Array<Task>;
-}
-
-export type EditableTasksForDay = TasksForDay<LocalTask>;
-export type DayToTasks<T = TasksForDay> = Record<string, T>;
-export type DayToEditableTasks = DayToTasks<EditableTasksForDay>;
-export type TimeBlock = Omit<WithTime<BaseTask>, "startTime">;
+export type TimeBlock = Omit<WithTime<BaseTask>, "startMinutes">;
 
 export function isRemote<T extends Task>(task: T): task is T & RemoteTask {
   return Object.hasOwn(task, "calendar");
 }
 
-export function isLocal(task: Task): task is WithTime<LocalTask> {
+export function isLocal(task: Task): task is LocalTask {
   return Object.hasOwn(task, "location");
 }

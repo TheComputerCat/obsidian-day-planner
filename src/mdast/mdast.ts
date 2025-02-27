@@ -1,6 +1,8 @@
+import { produce } from "immer";
 import { takeWhile } from "lodash/fp";
-import type { Node, Parent, Text as MdastText } from "mdast";
+import type { Node, Parent, Text as MdastText, ListItem } from "mdast";
 import type { Heading, List, Root, Nodes } from "mdast";
+import { fromMarkdown } from "mdast-util-from-markdown";
 import * as mdast from "mdast-util-to-markdown";
 import type { EditorPosition } from "obsidian";
 import { check, isExactly, isNotVoid } from "typed-assert";
@@ -14,7 +16,7 @@ import {
   mdastUtilListIndentationSpaces,
 } from "../regexp";
 
-export { fromMarkdown } from "mdast-util-from-markdown";
+export { fromMarkdown };
 
 export function toMarkdown(nodes: Nodes) {
   return listIndentationSpacesToTabs(
@@ -23,6 +25,19 @@ export function toMarkdown(nodes: Nodes) {
       .replace(dashOrNumberWithMultipleSpaces, "- ")
       .replace(escapedSquareBracket, "["),
   );
+}
+
+export function sortListsRecursivelyInMarkdown(contents: string) {
+  const root = fromMarkdown(contents);
+
+  const sorted = {
+    ...root,
+    children: root.children.map((child) =>
+      sortListsRecursively(child, compareByTimestampInText),
+    ),
+  };
+
+  return toMarkdown(sorted);
 }
 
 export function findHeadingWithChildren(
@@ -71,8 +86,99 @@ export function sortListsRecursively<T extends Node>(
           sortListsRecursively(child, sortFn),
         ),
       }))
-      .sort(sortFn),
+      .toSorted(sortFn),
   };
+}
+
+export function findFirst(
+  node: Node,
+  predicate: (node: Node) => boolean,
+): Node | undefined {
+  if (predicate(node)) {
+    return node;
+  }
+
+  if (isParentNode(node)) {
+    for (const child of node.children) {
+      const found = findFirst(child, predicate);
+
+      if (found) {
+        return found;
+      }
+    }
+  }
+
+  return undefined;
+}
+
+export function updateFirst(node: Node, updateFn: (node: Node) => boolean) {
+  return produce(node, (draft) => {
+    if (updateFn(draft)) {
+      return;
+    }
+
+    if (isParentNode(draft)) {
+      for (const child of draft.children) {
+        const found = updateFirst(child, updateFn);
+
+        if (found) {
+          return;
+        }
+      }
+    }
+  });
+}
+
+export function insertListItemUnderHeading(
+  root: Root,
+  heading: string,
+  listItem: ListItem,
+) {
+  return produce(root, (draft) => {
+    const headingIndex = draft.children.findIndex(
+      (child) =>
+        checkHeading(child) && getFirstTextNodeValue(child) === heading,
+    );
+
+    if (headingIndex >= 0) {
+      const afterHeading = draft.children.slice(headingIndex + 1);
+
+      const nextHeadingIndex = afterHeading.findIndex((child) =>
+        checkHeading(child),
+      );
+
+      const end = nextHeadingIndex === -1 ? undefined : nextHeadingIndex;
+      const underHeading = afterHeading.slice(0, end);
+
+      const list = underHeading.find((child) => checkList(child));
+
+      if (list) {
+        list.children.push(listItem);
+      } else {
+        draft.children.splice(headingIndex + 1, 0, {
+          type: "list",
+          children: [listItem],
+        });
+      }
+    } else {
+      draft.children.push(
+        {
+          type: "heading",
+          depth: 1,
+          children: [
+            {
+              type: "text",
+              value: heading,
+            },
+          ],
+        },
+        {
+          type: "list",
+          children: [listItem],
+        },
+      );
+    }
+  });
 }
 
 function compareAlphabetically(a: Node, b: Node) {
@@ -121,7 +227,13 @@ export function isList(node: Node): asserts node is List {
   return isExactly(node.type, "list");
 }
 
+export function isListItem(node: Node): asserts node is ListItem {
+  return isExactly(node.type, "listItem");
+}
+
 export const checkList = check(isList);
+export const checkHeading = check(isHeading);
+export const checkListItem = check(isListItem);
 
 export function positionContainsPoint(
   { start, end }: NonNullable<Node["position"]>,

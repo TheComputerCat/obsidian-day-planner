@@ -22,6 +22,8 @@ export const listTokenWithSpacesRegExp = new RegExp(listTokenWithSpaces);
 export const checkboxRegExp = new RegExp(checkbox);
 export const timeRegExp = new RegExp(time);
 export const timeFromStartRegExp = new RegExp(`^${time}`);
+export const headingRegExp = /^(#+)\s/;
+export const obsidianBlockIdRegExp = /\s\^[a-z1-9-]+$/i;
 
 export const looseTimestampAtStartOfLineRegExp = new RegExp(
   `^(?<start>${time})(?:${durationSeparator}(?<end>${time}))?`,
@@ -42,7 +44,13 @@ export const keylessScheduledPropRegExp = new RegExp(
 
 export const shortScheduledPropRegExp = new RegExp(`(⏳\\s*)${date}`);
 
-export const propRegexp = /\[(.+)::(.*)]/g;
+export const scheduledPropRegExps = [
+  scheduledPropRegExp,
+  keylessScheduledPropRegExp,
+  shortScheduledPropRegExp,
+];
+
+export const propRegexp = /\[([^\]]+)::([^\]]+)\]/g;
 
 export const dashOrNumberWithMultipleSpaces = /(-|\d+[.)])\s+/g;
 export const escapedSquareBracket = /\\\[/g;
@@ -50,3 +58,5 @@ export const mdastUtilListIndentationSpaces = new RegExp(
   `^( {4})+(?=${listToken})`,
   "gm",
 );
+
+export const repeatingNewlinesRegExp = /\n+/g;

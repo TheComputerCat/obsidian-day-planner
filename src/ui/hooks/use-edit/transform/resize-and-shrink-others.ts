@@ -1,34 +1,42 @@
 import { last } from "lodash";
+import type { Moment } from "moment";
+import { isNotVoid } from "typed-assert";
 
 import type { DayPlannerSettings } from "../../../../settings";
 import type { LocalTask, WithTime } from "../../../../task-types";
+import {
+  getMinutesSinceMidnight,
+  minutesToMomentOfDay,
+} from "../../../../util/moment";
 import { getEndMinutes } from "../../../../util/task-utils";
+
+import { getDurationMinutes } from "./util";
 
 export function resizeAndShrinkOthers(
   baseline: WithTime<LocalTask>[],
   editTarget: WithTime<LocalTask>,
   cursorTime: number,
   settings: DayPlannerSettings,
+  day?: Moment,
 ): WithTime<LocalTask>[] {
   const index = baseline.findIndex((task) => task.id === editTarget.id);
+  const task = baseline[index];
+
+  isNotVoid(task);
+
   const preceding = baseline.slice(0, index);
   const following = baseline.slice(index + 1);
 
-  const durationMinutes = Math.max(
-    cursorTime - editTarget.startMinutes,
-    settings.minimalDurationMinutes,
-  );
-
   const updated = {
-    ...editTarget,
-    durationMinutes,
+    ...task,
+    durationMinutes: getDurationMinutes(task, cursorTime, settings, day),
   };
 
   const updatedFollowing = following.reduce<WithTime<LocalTask>[]>(
     (result, current) => {
       const previous = last(result) || updated;
       const currentNeedsToShrink =
-        getEndMinutes(previous) > current.startMinutes;
+        getEndMinutes(previous) > getMinutesSinceMidnight(current.startTime);
 
       if (currentNeedsToShrink) {
         const newCurrentStartMinutes = getEndMinutes(previous);
@@ -39,7 +47,10 @@ export function resizeAndShrinkOthers(
           ...result,
           {
             ...current,
-            startMinutes: newCurrentStartMinutes,
+            startTime: minutesToMomentOfDay(
+              newCurrentStartMinutes,
+              current.startTime,
+            ),
             durationMinutes: Math.max(
               newCurrentDurationMinutes,
               settings.minimalDurationMinutes,
@@ -63,17 +74,21 @@ export function resizeFromTopAndShrinkOthers(
   settings: DayPlannerSettings,
 ): WithTime<LocalTask>[] {
   const index = baseline.findIndex((task) => task.id === editTarget.id);
+  const task = baseline[index];
+
+  isNotVoid(task);
+
   const preceding = baseline.slice(0, index);
   const following = baseline.slice(index + 1);
 
   const durationMinutes = Math.max(
-    getEndMinutes(editTarget) - cursorTime,
+    getEndMinutes(task) - cursorTime,
     settings.minimalDurationMinutes,
   );
 
   const updated = {
-    ...editTarget,
-    startMinutes: cursorTime,
+    ...task,
+    startTime: minutesToMomentOfDay(cursorTime, task.startTime),
     durationMinutes,
   };
 
@@ -82,24 +97,31 @@ export function resizeFromTopAndShrinkOthers(
     .reduce<WithTime<LocalTask>[]>((result, current) => {
       const nextInTimeline = last(result) || updated;
       const currentNeedsToShrink =
-        nextInTimeline.startMinutes < getEndMinutes(current);
+        getMinutesSinceMidnight(nextInTimeline.startTime) <
+        getEndMinutes(current);
 
       if (currentNeedsToShrink) {
         const currentNeedsToMove =
-          nextInTimeline.startMinutes - current.startMinutes <
+          getMinutesSinceMidnight(nextInTimeline.startTime) -
+            getMinutesSinceMidnight(current.startTime) <
           settings.minimalDurationMinutes;
 
         const newCurrentStartMinutes = currentNeedsToMove
-          ? nextInTimeline.startMinutes - settings.minimalDurationMinutes
-          : current.startMinutes;
+          ? getMinutesSinceMidnight(nextInTimeline.startTime) -
+            settings.minimalDurationMinutes
+          : getMinutesSinceMidnight(current.startTime);
 
         return [
           ...result,
           {
             ...current,
-            startMinutes: newCurrentStartMinutes,
+            startTime: minutesToMomentOfDay(
+              newCurrentStartMinutes,
+              current.startTime,
+            ),
             durationMinutes:
-              nextInTimeline.startMinutes - newCurrentStartMinutes,
+              getMinutesSinceMidnight(nextInTimeline.startTime) -
+              newCurrentStartMinutes,
           },
         ];
       }

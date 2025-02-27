@@ -1,5 +1,4 @@
 import type { Moment } from "moment";
-import type { CachedMetadata } from "obsidian";
 import { dedent } from "ts-dedent";
 
 import {
@@ -14,45 +13,7 @@ import {
   removeListTokens,
 } from "../util/task-utils";
 
-import { parseTimestamp } from "./timestamp/timestamp";
-
-export function getListItemsUnderHeading(
-  metadata: CachedMetadata,
-  heading: string,
-) {
-  const { headings } = metadata;
-
-  if (!headings) {
-    return [];
-  }
-
-  const planHeadingIndex = headings.findIndex((h) => h.heading === heading);
-
-  if (planHeadingIndex < 0) {
-    return [];
-  }
-
-  const planHeading = headings[planHeadingIndex];
-  const nextHeadingOfSameLevel = headings
-    .slice(planHeadingIndex + 1)
-    .find((heading) => heading.level <= planHeading.level);
-
-  return metadata.listItems?.filter((li) => {
-    const isBelowPlan =
-      li.position.start.line > planHeading.position.start.line;
-    const isAboveNextHeadingIfItExists =
-      !nextHeadingOfSameLevel ||
-      li.position.start.line < nextHeadingOfSameLevel.position.start.line;
-
-    return isBelowPlan && isAboveNextHeadingIfItExists;
-  });
-}
-
-export function getHeadingByText(metadata: CachedMetadata, text: string) {
-  const { headings = [] } = metadata;
-
-  return headings?.find((h) => h.heading === text);
-}
+import { parseTimestamp } from "./timestamp";
 
 function execTimestampPatterns(line: string) {
   const trimmed = line.trim();
@@ -73,22 +34,12 @@ export function testTimestampPatterns(line: string) {
 }
 
 export function replaceOrPrependTimestamp(line: string, timestamp: string) {
-  const withStartOfLineReplacement = line.replace(
-    looseTimestampAtStartOfLineRegExp,
-    timestamp,
-  );
-
-  if (line !== withStartOfLineReplacement) {
-    return withStartOfLineReplacement;
+  if (looseTimestampAtStartOfLineRegExp.test(line)) {
+    return line.replace(looseTimestampAtStartOfLineRegExp, timestamp);
   }
 
-  const withStrictReplacement = line.replace(
-    strictTimestampAnywhereInLineRegExp,
-    timestamp,
-  );
-
-  if (line !== withStrictReplacement) {
-    return withStrictReplacement;
+  if (strictTimestampAnywhereInLineRegExp.test(line)) {
+    return line.replace(strictTimestampAnywhereInLineRegExp, timestamp);
   }
 
   return `${timestamp} ${line}`;
@@ -107,13 +58,19 @@ export function getTimeFromLine({ line, day }: { line: string; day: Moment }) {
 
   const startTime = parseTimestamp(start, day);
 
-  let durationMinutes;
+  let durationMinutes: number | undefined;
 
   if (end) {
     const endTime = parseTimestamp(end, day);
 
-    if (endTime?.isAfter(startTime)) {
+    // todo: handle edge, use default duration
+    if (endTime.isAfter(startTime)) {
       durationMinutes = getDiffInMinutes(endTime, startTime);
+    } else {
+      durationMinutes = getDiffInMinutes(
+        startTime,
+        endTime.clone().add(1, "day"),
+      );
     }
   }
 

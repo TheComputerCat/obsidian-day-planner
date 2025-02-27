@@ -1,4 +1,7 @@
+import { isNotVoid } from "typed-assert";
+
 import type { LocalTask, WithTime } from "../../../../task-types";
+import { minutesToMomentOfDay } from "../../../../util/moment";
 import { toSpliced } from "../../../../util/to-spliced";
 
 export function drag(
@@ -7,12 +10,14 @@ export function drag(
   cursorTime: number,
 ): WithTime<LocalTask>[] {
   const index = baseline.findIndex((task) => task.id === editTarget.id);
+  const task = baseline[index];
 
-  const startMinutes = cursorTime;
+  isNotVoid(task);
 
   const updated = {
-    ...editTarget,
-    startMinutes,
+    ...task,
+    isAllDayEvent: false,
+    startTime: minutesToMomentOfDay(cursorTime, task.startTime),
   };
 
   return toSpliced(baseline, index, updated);

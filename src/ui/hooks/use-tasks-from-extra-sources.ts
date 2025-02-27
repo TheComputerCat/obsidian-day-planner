@@ -1,37 +1,28 @@
-import { TFile } from "obsidian";
-import { derived, get, type Readable } from "svelte/store";
+import type { STask } from "obsidian-dataview";
+import { derived, type Readable } from "svelte/store";
 
 import { DataviewFacade } from "../../service/dataview-facade";
-import * as query from "../../util/dataview-query";
 
 interface UseTasksFromExtraSourcesProps {
   dataviewSource: Readable<string>;
-  debouncedTaskUpdateTrigger: Readable<unknown>;
-  visibleDailyNotes: Readable<TFile[]>;
+  refreshSignal: Readable<unknown>;
   dataviewFacade: DataviewFacade;
 }
 
 export function useTasksFromExtraSources({
   dataviewSource,
-  debouncedTaskUpdateTrigger,
-  visibleDailyNotes,
+  refreshSignal,
   dataviewFacade,
 }: UseTasksFromExtraSourcesProps) {
   return derived(
-    [dataviewSource, debouncedTaskUpdateTrigger],
-    ([$dataviewSource]) => {
-      const noAdditionalSource = $dataviewSource.trim().length === 0;
+    [dataviewSource, refreshSignal],
+    ([$dataviewSource], set: (tasks: STask[]) => void) => {
+      dataviewFacade.getAllTasksFrom($dataviewSource).then(set, (reason) => {
+        console.error("Failed to fetch tasks from dataview source: ", reason);
 
-      if (noAdditionalSource) {
-        return [];
-      }
-
-      const queryFromExtraSources = query.andNot(
-        $dataviewSource,
-        query.anyOf(get(visibleDailyNotes)),
-      );
-
-      return dataviewFacade.getAllTasksFrom(queryFromExtraSources);
+        set([]);
+      });
     },
+    [],
   );
 }

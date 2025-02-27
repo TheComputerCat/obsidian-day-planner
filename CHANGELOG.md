@@ -1,3 +1,71 @@
+## 0.27.0
+
+### ✨ New features
+
+- Edit text in the command palette before task creation
+- Add descriptive icons to clock commands, so that they are easier to use in the mobile toolbar
+
+## 0.26.3
+
+### 🐞 Fixed issues
+
+- Fix tasks not added to daily note when there is no planner heading inside it
+- Fix clocks from daily notes not showing up in timeline & active clocks
+
+## 0.26.2
+
+### 🐞 Fixed issues
+
+- Fix messing up frontmatter when there is no planner heading in file
+
+## 0.26.0
+
+### ✨ New feature: time tracking (experimental)
+
+You can record time spent on tasks in the form of Dataview properties and then view the records as time blocks, much like planner entries. See [the docs for detailed instructions](https://github.com/ivan-lednev/obsidian-day-planner?tab=readme-ov-file#4-time-tracking).
+
+### 🐞 Fixed issues
+
+- Fixed crash for iOS on drag-and-drop edits (#519)
+- Fixed duplicated timestamps on drag-and-drop edits (#618)
+- Fixed removing task Dataview properties on edits (#370)
+
+## 0.25.0
+
+### 💥 Breaking changes
+
+- Now only the items under the planner heading will get pulled from daily notes (#382)
+
+### ✨ New features
+
+- Now after edits there is an **UNDO** notice that lets you revert the changes to tasks, even across multiple files (partially addresses #341)
+- Now the plugin will ask for permission before creating new files on drag-and-drop edits
+- Tasks crossing midnight now get shown properly in multiple day columns instead of stretching the first day (#586, #364)
+  - E.g.: `- 23:00 - 4:00 Task` will get shown in 2 columns as 2 separate blocks
+- Timeline controls look tidier now
+- Now all-day remote events are shown in the unscheduled tasks section
+- Text in blocks is now sticky and will stay visible when scrolling as well as when an event starts before the configured start hour
+
+#### Week planner -> multi-day planner
+
+- Now you can switch between 3 views:
+  - **full week** (with configurable start of the week)
+  - **work week** (starting on Monday)
+  - **3 upcoming days** (#515)
+- You can now configure the first day of the week (#231)
+- Now you can move back and forth between time periods from the sidebar of the multiday-view (#458, #495)
+- Now weekends get marked by a different background color
+- Now you an open plugin settings from the multi-day view
+- Now the time period of the open view is visible in its tab title
+- Now you can open the multi-day view from the left ribbon
+
+### 🐞 Fixed issues
+
+- Now the plugin finds contrasting font colors for your color overrides for time blocks (#481)
+- obsidian-tasks tasks now get copied under the original line in the original file
+- Now copying a task also copies the sub-items under it
+- Extra spaces no longer get added in edited files
+
 ## 0.24.0
 
 ### ✨ New features

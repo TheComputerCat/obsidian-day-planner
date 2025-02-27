@@ -5,7 +5,11 @@ import { isOneOf } from "typed-assert";
 
 import { icons } from "../constants";
 import type DayPlanner from "../main";
-import { type DayPlannerSettings, eventFormats } from "../settings";
+import {
+  type DayPlannerSettings,
+  eventFormats,
+  firstDaysOfWeek,
+} from "../settings";
 
 export class DayPlannerSettingsTab extends PluginSettingTab {
   constructor(
@@ -31,6 +35,39 @@ export class DayPlannerSettingsTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
+      .setName("Task Notification")
+      .setDesc("Display a notification when a new task is started")
+      .addToggle((toggle) =>
+        toggle
+          .setValue(this.plugin.settings().showTaskNotification)
+          .onChange((value: boolean) => {
+            this.update({ showTaskNotification: value });
+          }),
+      );
+
+    new Setting(containerEl)
+      .setName("Center the Pointer in the Timeline View")
+      .setDesc(
+        "Should the pointer continuously get scrolled to the center of the view",
+      )
+      .addToggle((component) => {
+        component
+          .setValue(this.plugin.settings().centerNeedle)
+          .onChange((value) => {
+            this.update({ centerNeedle: value });
+          });
+      });
+
+    new Setting(containerEl)
+      .setName("Sort tasks in planner chronologically after edits")
+      .addToggle((component) => {
+        component
+          .setValue(this.plugin.settings().sortTasksInPlanAfterEdit)
+          .onChange((value) => {
+            this.update({ sortTasksInPlanAfterEdit: value });
+          });
+      });
+    new Setting(containerEl)
       .setName("Event format on creation")
       .addDropdown((dropdown) => {
         dropdown.addOptions({
@@ -46,6 +83,21 @@ export class DayPlannerSettingsTab extends PluginSettingTab {
             this.display();
           });
       });
+
+    new Setting(containerEl)
+      .setName("Timeline Zoom Level")
+      .setDesc(
+        "The zoom level to display the timeline. The higher the number, the more vertical space each task will take up.",
+      )
+      .addSlider((slider) =>
+        slider
+          .setLimits(1, 5, 1)
+          .setValue(Number(this.plugin.settings().zoomLevel) ?? 4)
+          .setDynamicTooltip()
+          .onChange((value: number) => {
+            this.update({ zoomLevel: value });
+          }),
+      );
 
     if (this.plugin.settings().eventFormatOnCreation === "task") {
       new Setting(containerEl)
@@ -69,45 +121,6 @@ export class DayPlannerSettingsTab extends PluginSettingTab {
             }),
         );
     }
-
-    new Setting(containerEl)
-      .setName("Round time to minutes")
-      .setDesc("While editing, tasks are going to get rounded to this number")
-      .addSlider((slider) =>
-        slider
-          .setLimits(5, 20, 5)
-          .setValue(this.plugin.settings().snapStepMinutes)
-          .setDynamicTooltip()
-          .onChange((value: number) => {
-            this.update({ snapStepMinutes: value });
-          }),
-      );
-
-    new Setting(containerEl)
-      .setName("Task Notification")
-      .setDesc("Display a notification when a new task is started")
-      .addToggle((toggle) =>
-        toggle
-          .setValue(this.plugin.settings().showTaskNotification)
-          .onChange((value: boolean) => {
-            this.update({ showTaskNotification: value });
-          }),
-      );
-
-    new Setting(containerEl)
-      .setName("Timeline Zoom Level")
-      .setDesc(
-        "The zoom level to display the timeline. The higher the number, the more vertical space each task will take up.",
-      )
-      .addSlider((slider) =>
-        slider
-          .setLimits(1, 5, 1)
-          .setValue(Number(this.plugin.settings().zoomLevel) ?? 4)
-          .setDynamicTooltip()
-          .onChange((value: number) => {
-            this.update({ zoomLevel: value });
-          }),
-      );
 
     new Setting(containerEl)
       .setName("Timeline Icon")
@@ -154,27 +167,22 @@ export class DayPlannerSettingsTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
-      .setName("Center the Pointer in the Timeline View")
-      .setDesc(
-        "Should the pointer continuously get scrolled to the center of the view",
-      )
-      .addToggle((component) => {
+      .setName("First day of week")
+      .addDropdown((component) =>
         component
-          .setValue(this.plugin.settings().centerNeedle)
-          .onChange((value) => {
-            this.update({ centerNeedle: value });
-          });
-      });
+          .addOptions({
+            monday: "Monday",
+            sunday: "Sunday",
+            saturday: "Saturday",
+            friday: "Friday",
+          })
+          .setValue(String(this.plugin.settings().firstDayOfWeek))
+          .onChange((value: string) => {
+            isOneOf(value, firstDaysOfWeek);
 
-    new Setting(containerEl)
-      .setName("Sort tasks in planner chronologically after edits")
-      .addToggle((component) => {
-        component
-          .setValue(this.plugin.settings().sortTasksInPlanAfterEdit)
-          .onChange((value) => {
-            this.update({ sortTasksInPlanAfterEdit: value });
-          });
-      });
+            this.update({ firstDayOfWeek: value });
+          }),
+      );
 
     containerEl.createEl("h2", { text: "Remote calendars" });
 
@@ -230,9 +238,11 @@ export class DayPlannerSettingsTab extends PluginSettingTab {
           .setPlaceholder("URL")
           .setValue(ical.url)
           .onChange((value: string) => {
+            const withCorrectProtocol = value.replace("webcal://", "https://");
+
             this.settingsStore.update(
               produce((draft) => {
-                draft.icals[index].url = value;
+                draft.icals[index].url = withCorrectProtocol;
               }),
             );
           }),
@@ -375,7 +385,19 @@ export class DayPlannerSettingsTab extends PluginSettingTab {
     new Setting(containerEl)
       .setName("Planner Heading Text")
       .setDesc(
-        `When you create a planner, this text is going to be in the heading`,
+        createFragment((fragment) => {
+          fragment.append(
+            createEl("p", {
+              text: "Only the items under this heading (and its subheadings) are going to be pulled from daily notes.",
+            }),
+            createEl("p", {
+              text: "If left empty, the plugin will pull all items from daily notes.",
+            }),
+            createEl("p", {
+              text: `Also used when creating a plan with drag-and-drop.`,
+            }),
+          );
+        }),
       )
       .addText((component) =>
         component
@@ -462,6 +484,19 @@ export class DayPlannerSettingsTab extends PluginSettingTab {
             this.update({ extendDurationUntilNext: value });
           });
       });
+
+    new Setting(containerEl)
+      .setName("Round time to minutes")
+      .setDesc("While editing, tasks are going to get rounded to this number")
+      .addSlider((slider) =>
+        slider
+          .setLimits(5, 20, 5)
+          .setValue(this.plugin.settings().snapStepMinutes)
+          .setDynamicTooltip()
+          .onChange((value: number) => {
+            this.update({ snapStepMinutes: value });
+          }),
+      );
 
     new Setting(containerEl)
       .setName("Default task duration")

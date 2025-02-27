@@ -1,47 +1,69 @@
 <script lang="ts">
   import type { Moment } from "moment";
-  import { getContext } from "svelte";
   import { isNotVoid } from "typed-assert";
 
-  import { obsidianContext } from "../../constants";
+  import { getObsidianContext } from "../../context/obsidian-context";
   import { isToday } from "../../global-store/current-time";
   import { getVisibleHours, snap } from "../../global-store/derived-settings";
-  import { settings } from "../../global-store/settings";
   import { isRemote } from "../../task-types";
-  import { type ObsidianContext } from "../../types";
-  import { getRenderKey } from "../../util/task-utils";
+  import { minutesToMomentOfDay } from "../../util/moment";
+  import { getRenderKey, offsetYToMinutes } from "../../util/task-utils";
   import { isTouchEvent } from "../../util/util";
+  import { createTimeBlockMenu } from "../time-block-menu";
 
   import Column from "./column.svelte";
+  import DragControls from "./drag-controls.svelte";
+  import FloatingControls from "./floating-controls.svelte";
   import LocalTimeBlock from "./local-time-block.svelte";
   import Needle from "./needle.svelte";
-  import RemoteTimeBlock from "./remote-time-block.svelte";
-
-  export let day: Moment;
-  export let isUnderCursor = false;
+  import PositionedTimeBlock from "./positioned-time-block.svelte";
+  import RemoteTimeBlockContent from "./remote-time-block-content.svelte";
+  import ResizeControls from "./resize-controls.svelte";
+  import Selectable from "./selectable.svelte";
+  import TimeBlockBase from "./time-block-base.svelte";
 
   const {
-    editContext: { confirmEdit, getEditHandlers, pointerOffsetY },
-  } = getContext<ObsidianContext>(obsidianContext);
+    day,
+    isUnderCursor = false,
+  }: { day: Moment; isUnderCursor?: boolean } = $props();
 
-  $: ({
-    displayedTasks,
-    handleContainerMouseDown,
-    handleResizerMouseDown,
-    handleTaskMouseUp,
-    handleGripMouseDown,
-    handleMouseEnter,
-  } = getEditHandlers(day));
+  const {
+    pointerDateTime,
+    settings,
+    editContext: {
+      confirmEdit,
+      handlers: { handleContainerMouseDown },
+      getDisplayedTasksForTimeline,
+      editOperation,
+    },
+    getDisplayedTasksWithClocksForTimeline,
+  } = getObsidianContext();
 
+  const displayedTasksForTimeline = $derived(getDisplayedTasksForTimeline(day));
+  const displayedTasksWithClocksForTimeline = $derived(
+    getDisplayedTasksWithClocksForTimeline(day),
+  );
   let el: HTMLElement | undefined;
 
   function updatePointerOffsetY(event: PointerEvent) {
     isNotVoid(el);
 
+    // todo: add memo
     const viewportToElOffsetY = el.getBoundingClientRect().top;
     const borderTopToPointerOffsetY = event.clientY - viewportToElOffsetY;
+    const newOffsetY = snap(borderTopToPointerOffsetY, $settings);
+    const minutes = offsetYToMinutes(
+      newOffsetY,
+      $settings.zoomLevel,
+      $settings.startHour,
+    );
+    const dateTime = minutesToMomentOfDay(minutes, day);
 
-    pointerOffsetY.set(snap(borderTopToPointerOffsetY, $settings));
+    // todo: this should be derived
+    pointerDateTime.set({
+      dateTime,
+      type: "dateTime",
+    });
   }
 </script>
 
@@ -53,35 +75,87 @@
   <div
     bind:this={el}
     class="tasks absolute-stretch-x"
-    on:mouseenter={handleMouseEnter}
-    on:pointerdown={(event) => {
+    onpointerdown={(event) => {
       if (isTouchEvent(event) || event.target !== el) {
         return;
       }
 
       handleContainerMouseDown();
     }}
-    on:pointermove={updatePointerOffsetY}
-    on:pointerup={confirmEdit}
-    on:pointerup|stopPropagation
+    onpointermove={updatePointerOffsetY}
+    onpointerup={confirmEdit}
   >
-    {#each $displayedTasks.withTime as task (getRenderKey(task))}
+    {#each $displayedTasksForTimeline.withTime as task (getRenderKey(task))}
       {#if isRemote(task)}
-        <RemoteTimeBlock {task} />
+        <PositionedTimeBlock {task}>
+          <TimeBlockBase {task}>
+            <RemoteTimeBlockContent {task} />
+          </TimeBlockBase>
+        </PositionedTimeBlock>
       {:else}
-        <LocalTimeBlock
-          onFloatingUiPointerDown={updatePointerOffsetY}
-          onGripMouseDown={handleGripMouseDown}
-          onMouseUp={() => {
-            handleTaskMouseUp(task);
-          }}
-          onResizerMouseDown={handleResizerMouseDown}
-          {task}
-        />
+        <Selectable
+          onSecondarySelect={createTimeBlockMenu}
+          selectionBlocked={Boolean($editOperation)}
+        >
+          {#snippet children(selectable)}
+            <FloatingControls active={selectable.state === "primary"}>
+              {#snippet anchor(floatingControls)}
+                <PositionedTimeBlock {task}>
+                  <LocalTimeBlock
+                    isActive={selectable.state !== "none" ||
+                      $editOperation?.task.id === task.id}
+                    onpointerup={selectable.onpointerup}
+                    {task}
+                    use={[...selectable.use, ...floatingControls.actions]}
+                  />
+                </PositionedTimeBlock>
+              {/snippet}
+              {#snippet topEnd({ isActive, setIsActive })}
+                <DragControls
+                  --expanding-controls-position="absolute"
+                  {isActive}
+                  {setIsActive}
+                  {task}
+                />
+              {/snippet}
+              {#snippet bottom({ isActive, setIsActive })}
+                <ResizeControls {isActive} reverse {setIsActive} {task} />
+              {/snippet}
+              {#snippet top({ isActive, setIsActive })}
+                <ResizeControls
+                  fromTop
+                  {isActive}
+                  reverse
+                  {setIsActive}
+                  {task}
+                />
+              {/snippet}
+            </FloatingControls>
+          {/snippet}
+        </Selectable>
       {/if}
     {/each}
   </div>
 </Column>
+
+{#if $settings.showTimeTracker}
+  <Column
+    --column-background-color="hsl(var(--color-accent-hsl), 0.03)"
+    visibleHours={getVisibleHours($settings)}
+  >
+    {#if $isToday(day)}
+      <Needle autoScrollBlocked={isUnderCursor} showBall={false} />
+    {/if}
+
+    <div class="tasks absolute-stretch-x">
+      {#each $displayedTasksWithClocksForTimeline as task (getRenderKey(task))}
+        <PositionedTimeBlock {task}>
+          <LocalTimeBlock {task} />
+        </PositionedTimeBlock>
+      {/each}
+    </div>
+  </Column>
+{/if}
 
 <style>
   .tasks {

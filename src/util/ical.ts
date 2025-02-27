@@ -2,13 +2,12 @@ import moment, { type Moment } from "moment";
 import { tz } from "moment-timezone";
 import ical, { type AttendeePartStat } from "node-ical";
 
-import { fallbackPartStat, noTitle, icalDayKeyFormat } from "../constants";
+import { fallbackPartStat, icalDayKeyFormat } from "../constants";
 import type { RemoteTask, WithTime } from "../task-types";
 import type { WithIcalConfig } from "../types";
 
 import { getId } from "./id";
 import { liftToArray } from "./lift";
-import { getMinutesSinceMidnight } from "./moment";
 
 export function canHappenAfter(icalEvent: ical.VEvent, date: Date) {
   if (!icalEvent.rrule) {
@@ -95,18 +94,18 @@ function icalEventToTask(
   const base = {
     id: getId(),
     calendar: icalEvent.calendar,
-    summary: icalEvent.summary || noTitle,
+    summary: icalEvent.summary || "(No title)",
     startTime: startTimeAdjusted,
     rsvpStatus,
   };
 
   if (isAllDayEvent) {
-    return base;
+    return { ...base, isAllDayEvent: true };
   }
 
   return {
     ...base,
-    startMinutes: getMinutesSinceMidnight(startTimeAdjusted),
+    isAllDayEvent: false,
     durationMinutes:
       (icalEvent.end.getTime() - icalEvent.start.getTime()) / 1000 / 60,
   };

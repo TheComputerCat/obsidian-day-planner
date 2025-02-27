@@ -1,44 +1,65 @@
 <script lang="ts">
   import type { Moment } from "moment";
   import { OverlayScrollbarsComponent } from "overlayscrollbars-svelte";
-  import { getContext } from "svelte";
 
-  import { obsidianContext } from "../../constants";
+  import { getObsidianContext } from "../../context/obsidian-context";
   import { settings } from "../../global-store/settings";
   import { isLocal } from "../../task-types";
-  import { type ObsidianContext } from "../../types";
+  import { createTimeBlockMenu } from "../time-block-menu";
 
-  import UnscheduledTimeBlock from "./unscheduled-time-block.svelte";
+  import DragControls from "./drag-controls.svelte";
+  import FloatingControls from "./floating-controls.svelte";
+  import LocalTimeBlock from "./local-time-block.svelte";
+  import RemoteTimeBlockContent from "./remote-time-block-content.svelte";
+  import Selectable from "./selectable.svelte";
+  import TimeBlockBase from "./time-block-base.svelte";
 
-  export let day: Moment;
+  const { day }: { day: Moment } = $props();
 
   const {
-    editContext: { getEditHandlers },
-  } = getContext<ObsidianContext>(obsidianContext);
+    editContext: { getDisplayedTasksForTimeline, editOperation },
+  } = getObsidianContext();
 
-  $: ({
-    displayedTasks,
-    handleTaskMouseUp,
-    handleUnscheduledTaskGripMouseDown,
-  } = getEditHandlers(day));
+  const displayedTasksForTimeline = $derived(getDisplayedTasksForTimeline(day));
 </script>
 
-{#if $displayedTasks.noTime.length > 0 && $settings.showUncheduledTasks}
+{#if $displayedTasksForTimeline.noTime.length > 0 && $settings.showUncheduledTasks}
   <OverlayScrollbarsComponent
     class="unscheduled-task-container overlayscrollbars-svelte"
     defer
     options={{ scrollbars: { theme: "os-theme-custom" } }}
   >
-    {#each $displayedTasks.noTime as task}
-      <!--    TODO: handle all day events here-->
+    {#each $displayedTasksForTimeline.noTime as task}
       {#if isLocal(task)}
-        <UnscheduledTimeBlock
-          onGripMouseDown={handleUnscheduledTaskGripMouseDown}
-          onMouseUp={() => {
-            handleTaskMouseUp(task);
-          }}
-          {task}
-        />
+        <Selectable
+          onSecondarySelect={createTimeBlockMenu}
+          selectionBlocked={Boolean($editOperation)}
+        >
+          {#snippet children(selectable)}
+            <FloatingControls active={selectable.state === "primary"}>
+              {#snippet anchor(floatingControls)}
+                <LocalTimeBlock
+                  isActive={selectable.state !== "none"}
+                  onpointerup={selectable.onpointerup}
+                  {task}
+                  use={[...selectable.use, ...floatingControls.actions]}
+                />
+              {/snippet}
+              {#snippet topEnd({ isActive, setIsActive })}
+                <DragControls
+                  --expanding-controls-position="absolute"
+                  {isActive}
+                  {setIsActive}
+                  {task}
+                />
+              {/snippet}
+            </FloatingControls>
+          {/snippet}
+        </Selectable>
+      {:else}
+        <TimeBlockBase {task}>
+          <RemoteTimeBlockContent {task} />
+        </TimeBlockBase>
       {/if}
     {/each}
   </OverlayScrollbarsComponent>
